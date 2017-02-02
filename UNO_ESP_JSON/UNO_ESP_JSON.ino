@@ -10,15 +10,15 @@
 SoftwareSerial mySerial(3, 2); //Pines: RX conectado a D3, TX conectado a D2
 
 //
-//#define DEBUG_ESP8266 //Comentar si no se quiere imprimir la respuesta del ESP8266
+#define DEBUG_ESP8266 //Comentar si no se quiere imprimir la respuesta del ESP8266
 #define ESP8266_OK //Confirmar si el comando AT fue recibido
 
 
-#define SSID   "iMA6iNEXYZ"
-#define PASS   "16davinci"
+#define SSID   "AP-12805"
+#define PASS   "nadieselasabe"
 
-String server = "AT+CIPSTART=\"TCP\",\"https://imaginexyz-genuinoday.herokuapp.com\",80";  //Direccion del servidor al que se envían los datos
-String JSON = "POST /imaginexyz/genuinodayb/ HTTP/1.1\r\nHost: imaginexyz-genuinoday.herokuapp.com:80\r\nAccept: application/json\r\nContent-Type: application/json\r\nContent-Length: "; //Header post/JSON
+String server = "AT+CIPSTART=\"TCP\",\"http://192.168.0.103:8081/\",8081";  //Direccion del servidor al que se envían los datos
+String JSON = "GET /Proyectos/ArduinoPHPPost/phpPost/test.php?id1=1 HTTP/1.1\r\nHost: http://192.168.0.103:8081/:8081\r\nAccept: application/json\r\nContent-Type: application/json\r\nContent-Length: "; //Header post/JSON
 String trama; // Almacena el comando AT que envía el largo del dato a enviarse al servidor
 
 //-----------------------------------------------------------------------------------------------------------------
@@ -105,24 +105,9 @@ void SendCmd (String ATcmd, int Tespera) {
 }
 
 void loop() {
-  //******************Toma de datos***********************************
-  //int sensorValue = analogRead(A0);
-  
-  int sensorValue = medirDistancia();
-  //Serial.println(distance);
-  delay(100);
-  //*****************Conexión con el servidor*************************
-  String datos = "{\"Johan la distancia es \":\"" + String(sensorValue) + "\"" + "," + "\"Sensor + CIEN \":\"" + String(sensorValue + 100) + "\"" + "}";
-  String temp = JSON;
-  JSON = JSON + String(datos.length()) + "\r\n\r\n" + datos;
-  Serial.println(JSON);
-  trama = "AT+CIPSEND=" + String(JSON.length());
-  Serial.println(trama);
-  SendCmd(server, 60);
-  mySerial.println(trama);
-  delay(100);
-  mySerial.println(JSON);
-  JSON = temp;
+  Serial.println("enviando");
+  SendCmd("AT+CIPSTART=\"TCP\",\"http://192.168.0.103:8081/\",8081",60);
+  SendCmd("AT+CIPSEND=69",60);
   resetESP();
 }
 
@@ -135,5 +120,5 @@ int medirDistancia(){
   digitalWrite(trigPin,LOW);
   duration = pulseIn(echoPin, HIGH);//obtener tiempo de viaje
   distance = (duration / 2)/29.1;
-  return distance;
+  return 100;
   }
