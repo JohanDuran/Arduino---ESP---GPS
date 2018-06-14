@@ -4,10 +4,14 @@
 */
 
 #include <SoftwareSerial.h>
+#include <TinyGPS.h>
+
+//GPS module
+TinyGPS gps;
+SoftwareSerial gps(5, 4);
+
 //para el sensor ultrasonico
-#define trigPin 13
-#define echoPin 12
-SoftwareSerial mySerial(3, 2); //Pines: RX conectado a D3, TX conectado a D2
+SoftwareSerial esp(3, 2); //Pines: RX conectado a D3, TX conectado a D2
 
 //
 //#define DEBUG_ESP8266 //Comentar si no se quiere imprimir la respuesta del ESP8266
@@ -17,20 +21,21 @@ SoftwareSerial mySerial(3, 2); //Pines: RX conectado a D3, TX conectado a D2
 #define SSID   "AP-12805"
 #define PASS   "nadieselasabe"
 
-String server = "AT+CIPSTART=\"TCP\",\"192.168.0.103\",8081";  //Direccion del servidor al que se envían los datos
-String JSON = "POST /Proyectos/ArduinoPHPPost/phpPost/test.php HTTP/1.1\r\nHost: 192.168.0.103:8081\r\nAccept: application/json\r\nContent-Type: application/json\r\nContent-Length: "; //Header post/JSON
+String server = "AT+CIPSTART=\"TCP\",\"192.168.0.101\",8081";  //Direccion del servidor al que se envían los datos
+String JSON = "POST /Proyectos/ArduinoPHPPost/phpPost/test.php HTTP/1.1\r\nHost: 192.168.0.101:8081\r\nAccept: application/json\r\nContent-Type: application/json\r\nContent-Length: "; //Header post/JSON
 String trama; // Almacena el comando AT que envía el largo del dato a enviarse al servidor
 
 //-----------------------------------------------------------------------------------------------------------------
 void setup() {
 
   Serial.begin(115200);             // Inicializacion del Monitor Serial a 115200
-  mySerial.begin(38400);           // Inicializacion  puerto serial virtual
-  Serial.println("Manejo Modulo ESP8266 con Arduino UNO");// Mensaje de inicialización
+  esp.begin(38400);           // Inicializacion  puerto serial virtual para el esp
+  gps.begin(9600);            //Inicializacion del módulo gps 
+  Serial.print("Simple TinyGPS library v. "); Serial.println(TinyGPS::library_version());
+  Serial.println();     
 
-  //para el sensor ultrasonico
-  pinMode(trigPin, OUTPUT);//configuración de pines
-  pinMode(echoPin, INPUT);//configuración de pines
+  
+  Serial.println("Manejo Modulo ESP8266 con Arduino UNO");// Mensaje de inicialización
   
   //*********************Pruebas iniciales**************************
   Serial.println("AT");
@@ -45,6 +50,25 @@ void setup() {
   conectarWIFI();                 // Función para conectar el módulo ESP8266 a la red WiFi selecccionada
   delay(20);
 }
+
+void loop() {
+  //*****************Conexión con el servidor*************************
+  String datos = "{\"id1\":\"12\"}";
+  String temp = JSON;
+  JSON = JSON + String(datos.length()) + "\r\n\r\n" + datos;
+  Serial.println(JSON);
+  trama = "AT+CIPSEND=" + String(JSON.length());
+  Serial.println(trama);
+  SendCmd(server, 60);
+  esp.println(trama);
+  delay(100);
+  esp.println(JSON);
+  JSON = temp;
+  resetESP();
+  delay(5000);
+}
+
+
 //****************************************** FUNCIONES****************************************************************//
 
 void conectarWIFI() {       // Función que permite conectarse al servidor específicado en el string server
@@ -59,23 +83,23 @@ void conectarWIFI() {       // Función que permite conectarse al servidor espec
 
 void resetESP() {
   Serial.println("RST");
-  mySerial.println("AT+RST");        // Deshabilita el echo de los comandos enviados
+  esp.println("AT+RST");        // Deshabilita el echo de los comandos enviados
   delay(20);
   conectarWIFI();                 // Función para conectar el módulo ESP8266 a la red WiFi selecccionada
 }
 
 void leer() {
-  while (mySerial.available()) {
+  while (esp.available()) {
     String recibido = "";
-    if (mySerial.available()) {
-      recibido += (char)mySerial.read();
+    if (esp.available()) {
+      recibido += (char)esp.read();
     }
     Serial.print(recibido);
   }
 }
 
 bool findOK() {                     //Función que permite verificar el resultado "OK" del comando AT
-  if (mySerial.find("OK"))         // Si se localiza OK en la respuesta del ESP8266
+  if (esp.find("OK"))         // Si se localiza OK en la respuesta del ESP8266
   {
     Serial.println("OK");
     return true;                    // Devuelve "True"
@@ -90,50 +114,17 @@ bool findOK() {                     //Función que permite verificar el resultad
 void SendCmd (String ATcmd, int Tespera) {
 
 #ifdef DEBUG_ESP8266
-  mySerial.println(ATcmd);
-  delay(10); //Tiempo a esperar para abrir el puerto mySerial
+  esp.println(ATcmd);
+  delay(10); //Tiempo a esperar para abrir el puerto esp
   leer();
 #endif
 
 #ifdef ESP8266_OK
   while (!findOK()) {
-    mySerial.println(ATcmd);
-    delay(Tespera); //Tiempo a esperar para abrir el puerto mySerial
+    esp.println(ATcmd);
+    delay(Tespera); //Tiempo a esperar para abrir el puerto esp
   }
 #endif
   delay(60);
 }
 
-void loop() {
-  //******************Toma de datos***********************************
-  //int sensorValue = analogRead(A0);
-  
-  int sensorValue = medirDistancia();
-  //Serial.println(distance);
-  delay(100);
-  //*****************Conexión con el servidor*************************
-  String datos = "{\"id1\":\"12\"}";
-  String temp = JSON;
-  JSON = JSON + String(datos.length()) + "\r\n\r\n" + datos;
-  Serial.println(JSON);
-  trama = "AT+CIPSEND=" + String(JSON.length());
-  Serial.println(trama);
-  SendCmd(server, 60);
-  mySerial.println(trama);
-  delay(100);
-  mySerial.println(JSON);
-  JSON = temp;
-  resetESP();
-}
-
-int medirDistancia(){
-  long duration, distance;
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(trigPin,HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin,LOW);
-  duration = pulseIn(echoPin, HIGH);//obtener tiempo de viaje
-  distance = (duration / 2)/29.1;
-  return distance;
-  }
